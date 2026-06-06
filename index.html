@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="考公助手">
 <link rel="manifest" href="manifest.json">
 <title>考公学习助手</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
@@ -152,6 +153,7 @@ select.form-control{appearance:none;background-image:url("data:image/svg+xml,%3C
   <div class="top-bar"><div class="top-bar-inner">
     <button class="back-btn" onclick="showPage('home')">‹</button>
     <h1>知识点</h1>
+    <button class="top-action" onclick="openPDFModal()" style="margin-right:6px">📄 PDF</button>
     <button class="top-action" onclick="openKPModal()">+ 新增</button>
   </div></div>
   <div class="page-body">
@@ -314,6 +316,42 @@ select.form-control{appearance:none;background-image:url("data:image/svg+xml,%3C
     <div class="form-group"><label class="form-label">为什么错了</label><textarea class="form-control" id="f-wq-reason" placeholder="分析错误原因..."></textarea></div>
     <div class="form-group"><label class="form-label">经验总结</label><textarea class="form-control" id="f-wq-summary" placeholder="记录学习收获..."></textarea></div>
     <button class="btn btn-primary btn-block" onclick="saveWQ()">保存错题</button>
+  </div>
+</div>
+
+<!-- ===== 模态：PDF 解析 ===== -->
+<div class="modal-overlay" id="modal-pdf">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">📄 PDF 解析为知识点</span>
+      <button class="modal-close" onclick="closeModal('modal-pdf')">×</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">选择 PDF 文件</label>
+      <input type="file" id="f-pdf-file" accept=".pdf" style="display:none" onchange="handlePDFSelect(this)">
+      <button class="btn btn-ghost btn-block" onclick="document.getElementById('f-pdf-file').click()">📂 选择 PDF 文件</button>
+      <div id="pdf-file-name" style="font-size:12px;color:#4a6cf7;margin-top:6px;text-align:center"></div>
+    </div>
+    <div id="pdf-progress" style="display:none">
+      <div style="background:#f0f2ff;border-radius:8px;padding:12px;text-align:center;font-size:13px;color:#4a6cf7">
+        <div id="pdf-progress-text">正在解析...</div>
+        <div style="margin-top:8px;background:#d8e0ff;border-radius:4px;height:6px"><div id="pdf-progress-bar" style="background:#4a6cf7;height:6px;border-radius:4px;width:0%;transition:.3s"></div></div>
+      </div>
+    </div>
+    <div id="pdf-result-area" style="display:none">
+      <div class="form-group">
+        <label class="form-label">所属科目 *</label>
+        <select class="form-control" id="f-pdf-subj"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">解析出的内容 <span style="font-size:11px;color:#aaa">（可编辑后保存）</span></label>
+        <div id="pdf-kp-list" style="max-height:320px;overflow-y:auto"></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary btn-block" onclick="savePDFKPs()">✅ 全部保存为知识点</button>
+        <button class="btn btn-ghost btn-sm" onclick="resetPDFModal()">重新选择</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -895,6 +933,146 @@ function fillSubjSelect(selId,selectedId){
   const sel=document.getElementById(selId);
   sel.innerHTML='<option value="">-- 请选择科目 --</option>';
   _subjects.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;if(selectedId&&s.id===selectedId)o.selected=true;sel.appendChild(o);});
+}
+
+// ============================================================
+// PDF 解析
+// ============================================================
+let _pdfKPs=[];
+
+function openPDFModal(){
+  resetPDFModal();
+  fillSubjSelect('f-pdf-subj');
+  openModal('modal-pdf');
+}
+
+function resetPDFModal(){
+  document.getElementById('f-pdf-file').value='';
+  document.getElementById('pdf-file-name').textContent='';
+  document.getElementById('pdf-progress').style.display='none';
+  document.getElementById('pdf-result-area').style.display='none';
+  document.getElementById('pdf-kp-list').innerHTML='';
+  _pdfKPs=[];
+}
+
+async function handlePDFSelect(input){
+  const file=input.files[0];
+  if(!file)return;
+  document.getElementById('pdf-file-name').textContent='📄 '+file.name;
+  document.getElementById('pdf-progress').style.display='block';
+  document.getElementById('pdf-result-area').style.display='none';
+  document.getElementById('pdf-progress-text').textContent='正在加载 PDF...';
+  document.getElementById('pdf-progress-bar').style.width='10%';
+
+  try{
+    // 设置 PDF.js worker
+    if(typeof pdfjsLib==='undefined'){toast('PDF 解析库加载失败，请检查网络连接');document.getElementById('pdf-progress').style.display='none';return;}
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const arrayBuffer=await file.arrayBuffer();
+    document.getElementById('pdf-progress-bar').style.width='30%';
+    document.getElementById('pdf-progress-text').textContent='正在解析页面...';
+
+    const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    const totalPages=pdf.numPages;
+    let fullText='';
+
+    for(let i=1;i<=totalPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      const pageText=content.items.map(item=>item.str).join(' ');
+      fullText+=pageText+'\n';
+      const pct=30+Math.floor((i/totalPages)*50);
+      document.getElementById('pdf-progress-bar').style.width=pct+'%';
+      document.getElementById('pdf-progress-text').textContent=`正在解析第 ${i}/${totalPages} 页...`;
+    }
+
+    document.getElementById('pdf-progress-bar').style.width='90%';
+    document.getElementById('pdf-progress-text').textContent='正在智能分段...';
+
+    // 智能分段：按段落/标题切割成知识点
+    _pdfKPs=parsePDFTextToKPs(fullText);
+
+    document.getElementById('pdf-progress-bar').style.width='100%';
+    document.getElementById('pdf-progress-text').textContent=`解析完成，共 ${_pdfKPs.length} 个知识点`;
+
+    setTimeout(()=>{
+      document.getElementById('pdf-progress').style.display='none';
+      renderPDFKPList();
+      document.getElementById('pdf-result-area').style.display='block';
+    },600);
+
+  }catch(err){
+    document.getElementById('pdf-progress').style.display='none';
+    toast('PDF 解析失败：'+err.message);
+  }
+}
+
+function parsePDFTextToKPs(text){
+  // 清理文本
+  text=text.replace(/\s+/g,' ').trim();
+  // 按常见分隔符切割段落
+  let segments=text.split(/(?:\n{2,}|(?<=[。！？])\s+(?=[一二三四五六七八九十\d（(【]|\p{Lu}))/u);
+  // 如果切割太少，按句号切割再合并
+  if(segments.length<3){
+    segments=text.split(/[。！？]/);
+  }
+  // 过滤太短的段落，合并相邻短段
+  const merged=[];
+  let buf='';
+  for(const seg of segments){
+    const s=seg.trim();
+    if(!s)continue;
+    buf+=(buf?'。':'')+s;
+    if(buf.length>=30){
+      merged.push(buf);
+      buf='';
+    }
+  }
+  if(buf.length>10)merged.push(buf);
+
+  // 每段生成一个知识点条目，标题取前20字
+  return merged.slice(0,50).map((content,i)=>{
+    const clean=content.replace(/\s+/g,' ').trim();
+    const title=clean.substring(0,20)+(clean.length>20?'..':'');
+    return{title,content:clean};
+  }).filter(k=>k.content.length>10);
+}
+
+function renderPDFKPList(){
+  const el=document.getElementById('pdf-kp-list');
+  if(!_pdfKPs.length){el.innerHTML='<div style="color:#bbb;text-align:center;padding:20px">未能解析出有效内容，请检查 PDF 是否含有文字（扫描版 PDF 暂不支持）</div>';return;}
+  el.innerHTML=_pdfKPs.map((kp,i)=>`
+    <div style="border:1.5px solid #e8ecff;border-radius:12px;padding:12px;margin-bottom:10px;background:#fafbff">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:12px;color:#4a6cf7;font-weight:600">知识点 ${i+1}</span>
+        <button onclick="removePDFKP(${i})" style="background:none;border:none;color:#ccc;font-size:16px;cursor:pointer;padding:0 4px">×</button>
+      </div>
+      <input class="form-control" style="margin-bottom:6px;font-size:13px" value="${esc(kp.title)}" oninput="_pdfKPs[${i}].title=this.value" placeholder="标题">
+      <textarea class="form-control" style="min-height:70px;font-size:13px" oninput="_pdfKPs[${i}].content=this.value">${esc(kp.content)}</textarea>
+    </div>`).join('');
+}
+
+function removePDFKP(i){
+  _pdfKPs.splice(i,1);
+  renderPDFKPList();
+}
+
+async function savePDFKPs(){
+  const subjId=parseInt(document.getElementById('f-pdf-subj').value)||null;
+  if(!subjId){toast('请先选择科目');return;}
+  if(!_pdfKPs.length){toast('没有可保存的知识点');return;}
+  let saved=0;
+  for(const kp of _pdfKPs){
+    const title=kp.title.trim();
+    const content=kp.content.trim();
+    if(!title||!content)continue;
+    await dbAdd('knowledge',{subject_id:subjId,title,content,tags:'PDF导入',source:'PDF导入',createdAt:nowISO()});
+    saved++;
+  }
+  toast(`✅ 已保存 ${saved} 个知识点`);
+  closeModal('modal-pdf');
+  loadKnowledge();
 }
 
 // ============================================================
