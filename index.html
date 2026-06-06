@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#4a6cf7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="考公助手">
+<link rel="manifest" href="manifest.json">
+<title>考公学习助手</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:#f5f6fa;color:#333;display:flex;flex-direction:column}
+button{cursor:pointer;border:none;outline:none;font-family:inherit}
+input,textarea,select{font-family:inherit;outline:none;border:none}
+
+#app{flex:1;overflow:hidden;position:relative}
+.page{position:absolute;inset:0;display:flex;flex-direction:column;background:#f5f6fa;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow:hidden;visibility:hidden}
+.page.active{transform:translateX(0);visibility:visible}
+.page-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
+
+.top-bar{background:#4a6cf7;color:#fff;flex-shrink:0;padding-top:env(safe-area-inset-top,0)}
+.top-bar-inner{display:flex;align-items:center;gap:10px;padding:13px 16px}
+.top-bar h1{font-size:18px;font-weight:600;flex:1}
+.back-btn{font-size:22px;padding:2px 8px;background:rgba(255,255,255,.2);border-radius:8px;color:#fff;line-height:1}
+.top-action{font-size:14px;padding:6px 12px;background:rgba(255,255,255,.2);border-radius:8px;color:#fff;font-weight:500}
+
+.bottom-nav{background:#fff;border-top:1px solid #eee;display:flex;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom,0);box-shadow:0 -2px 10px rgba(0,0,0,.06)}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;font-size:11px;color:#aaa;background:none;transition:.2s}
+.nav-btn.active{color:#4a6cf7}
+.nav-icon{font-size:22px;margin-bottom:2px;line-height:1}
+
+.card{background:#fff;border-radius:16px;padding:16px;margin:12px 14px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card-title{font-size:15px;font-weight:600;color:#222;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 18px;border-radius:12px;font-size:14px;font-weight:500;transition:.15s;white-space:nowrap}
+.btn:active{opacity:.8;transform:scale(.97)}
+.btn-primary{background:#4a6cf7;color:#fff}
+.btn-danger{background:#ff4d4f;color:#fff}
+.btn-ghost{background:#f0f2ff;color:#4a6cf7}
+.btn-outline{background:#fff;border:1.5px solid #4a6cf7;color:#4a6cf7}
+.btn-gray{background:#f5f5f5;color:#666}
+.btn-sm{padding:7px 12px;font-size:13px;border-radius:9px}
+.btn-block{width:100%;display:flex}
+
+.form-group{margin-bottom:14px}
+.form-label{font-size:13px;color:#666;margin-bottom:6px;display:block;font-weight:500}
+.form-control{width:100%;padding:11px 13px;border:1.5px solid #e8e8e8;border-radius:11px;font-size:14px;background:#fafafa;transition:.2s;display:block}
+.form-control:focus{border-color:#4a6cf7;background:#fff;box-shadow:0 0 0 3px rgba(74,108,247,.1)}
+textarea.form-control{resize:vertical;min-height:80px;line-height:1.6}
+select.form-control{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px}
+
+.list-item{background:#fff;border-radius:14px;padding:14px;margin:8px 14px;box-shadow:0 1px 8px rgba(0,0,0,.05);display:flex;align-items:flex-start;gap:12px}
+.item-body{flex:1;min-width:0}
+.item-title{font-size:15px;font-weight:500;color:#222;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item-sub{font-size:12px;color:#aaa;line-height:1.7}
+.item-actions{display:flex;gap:6px;flex-shrink:0;align-items:center}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:#f0f2ff;color:#4a6cf7;margin:2px}
+.tag-green{background:#f6ffed;color:#52c41a}
+.tag-red{background:#fff1f0;color:#ff4d4f}
+.tag-orange{background:#fff7e6;color:#fa8c16}
+
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px 0}
+.stat-card{background:#fff;border-radius:16px;padding:16px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.stat-num{font-size:30px;font-weight:700;color:#4a6cf7;line-height:1}
+.stat-label{font-size:12px;color:#aaa;margin-top:6px}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:.25s}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:22px 22px 0 0;width:100%;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 16px calc(env(safe-area-inset-bottom,0px) + 24px);transform:translateY(100%);transition:.3s cubic-bezier(.4,0,.2,1)}
+.modal-overlay.show .modal{transform:translateY(0)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.modal-title{font-size:17px;font-weight:600}
+.modal-close{font-size:24px;color:#ccc;background:none;padding:4px;line-height:1}
+
+.chips-bar{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;padding:10px 14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips-bar::-webkit-scrollbar{display:none}
+.chip{padding:6px 16px;border-radius:20px;font-size:13px;background:#f0f2ff;color:#4a6cf7;border:1.5px solid #d8e0ff;white-space:nowrap;flex-shrink:0;transition:.15s}
+.chip.active{background:#4a6cf7;color:#fff;border-color:#4a6cf7}
+
+.timer-display{font-size:56px;font-weight:700;color:#4a6cf7;text-align:center;letter-spacing:3px;padding:24px 0 16px;font-variant-numeric:tabular-nums}
+.timer-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+.quiz-box{font-size:15px;line-height:2.2;background:#f8f9ff;border-radius:14px;padding:16px;margin:10px 0;word-break:break-all}
+.blank-input{border:none;border-bottom:2.5px solid #4a6cf7;min-width:64px;padding:0 4px 2px;font-size:15px;color:#4a6cf7;background:transparent;text-align:center;width:80px}
+.blank-input.ok{border-color:#52c41a;color:#52c41a}
+.blank-input.err{border-color:#ff4d4f;color:#ff4d4f}
+
+.opt-btn{width:100%;text-align:left;padding:13px 15px;border-radius:12px;font-size:14px;background:#f8f9ff;border:1.5px solid #e8ecff;margin-bottom:9px;transition:.15s;line-height:1.5}
+.opt-btn.sel{background:#4a6cf7;color:#fff;border-color:#4a6cf7}
+.opt-btn.right{background:#f6ffed;border-color:#52c41a;color:#389e0d}
+.opt-btn.wrong{background:#fff1f0;border-color:#ff4d4f;color:#cf1322}
+
+.empty{text-align:center;padding:60px 20px;color:#ccc}
+.empty-icon{font-size:52px;margin-bottom:14px}
+
+#toast{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);background:rgba(30,30,30,.88);color:#fff;padding:10px 22px;border-radius:22px;font-size:14px;z-index:999;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mt8{margin-top:8px}.mt12{margin-top:12px}
+.img-preview{width:100%;border-radius:12px;margin-top:8px;max-height:220px;object-fit:contain;background:#f5f5f5;display:none}
+.divider{height:1px;background:#f0f0f0;margin:14px 0}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+<div id="app">
+
+<!-- ===== 首页 ===== -->
+<div class="page active" id="page-home">
+  <div class="top-bar"><div class="top-bar-inner"><h1>📚 考公学习助手</h1></div></div>
+  <div class="page-body">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="s-sub">0</div><div class="stat-label">科目数</div></div>
+      <div class="stat-card"><div class="stat-num" id="s-kp">0</div><div class="stat-label">知识点</div></div>
+      <div class="stat-card"><div class="stat-num" id="s-wq">0</div><div class="stat-label">错题总数</div></div>
+      <div class="stat-card"><div class="stat-num" id="s-um" style="color:#ff4d4f">0</div><div class="stat-label">待攻克</div></div>
+    </div>
+    <div class="card mt12">
+      <div class="card-title">🚀 快速入口</div>
+      <div class="row2">
+        <button class="btn btn-primary btn-block" onclick="showPage('wrong-questions');openWQModal()">➕ 记录错题</button>
+        <button class="btn btn-ghost btn-block" onclick="showPage('wrong-questions');startRedo()">🔄 开始重做</button>
+        <button class="btn btn-ghost btn-block" onclick="showPage('knowledge');openKPModal()">📝 添加知识点</button>
+        <button class="btn btn-ghost btn-block" onclick="showPage('exam-timer')">⏱ 开始计时</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📖 我的科目</div>
+      <div id="home-subj-list"></div>
+      <button class="btn btn-outline btn-block mt8" onclick="showPage('subjects')">管理科目 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 科目页 ===== -->
+<div class="page" id="page-subjects">
+  <div class="top-bar"><div class="top-bar-inner">
+    <button class="back-btn" onclick="showPage('home')">‹</button>
+    <h1>科目管理</h1>
+    <button class="top-action" onclick="openSubjectModal()">+ 新增</button>
+  </div></div>
+  <div class="page-body"><div id="subj-list"></div></div>
+</div>
+
+<!-- ===== 知识点页 ===== -->
+<div class="page" id="page-knowledge">
+  <div class="top-bar"><div class="top-bar-inner">
+    <button class="back-btn" onclick="showPage('home')">‹</button>
+    <h1>知识点</h1>
+    <button class="top-action" onclick="openKPModal()">+ 新增</button>
+  </div></div>
+  <div class="page-body">
+    <div class="chips-bar" id="kp-chips"></div>
+    <div style="padding:0 14px 10px"><input class="form-control" id="kp-search" placeholder="🔍 搜索知识点..." oninput="renderKPList()"></div>
+    <div id="kp-list"></div>
+  </div>
+</div>
+
+<!-- ===== 知识点详情 ===== -->
+<div class="page" id="page-kp-detail">
+  <div class="top-bar"><div class="top-bar-inner">
+    <button class="back-btn" onclick="showPage('knowledge')">‹</button>
+    <h1 id="kp-detail-title">知识点详情</h1>
+  </div></div>
+  <div class="page-body">
+    <div class="card" id="kp-detail-body"></div>
+    <div style="padding:0 14px;display:flex;gap:10px">
+      <button class="btn btn-ghost btn-block" onclick="startQuiz()">🧠 挖空检验</button>
+      <button class="btn btn-outline btn-sm" onclick="openEditKPModal()">✏️ 编辑</button>
+    </div>
+    <div class="card" id="quiz-card" style="display:none">
+      <div class="card-title">🧠 挖空检验</div>
+      <div class="quiz-box" id="quiz-display"></div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-primary btn-block" onclick="checkQuiz()">✅ 检验答案</button>
+        <button class="btn btn-ghost" onclick="startQuiz()">🔄 换题</button>
+      </div>
+      <div id="quiz-result" style="margin-top:10px;font-size:14px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 错题本页 ===== -->
+<div class="page" id="page-wrong-questions">
+  <div class="top-bar"><div class="top-bar-inner">
+    <button class="back-btn" onclick="showPage('home')">‹</button>
+    <h1>错题本</h1>
+    <button class="top-action" onclick="openWQModal()">+ 记录</button>
+  </div></div>
+  <div class="page-body">
+    <div class="chips-bar" id="wq-chips"></div>
+    <div style="padding:0 14px 10px;display:flex;gap:8px">
+      <input class="form-control" id="wq-search" placeholder="🔍 搜索错题..." oninput="renderWQList()" style="flex:1">
+      <button class="btn btn-ghost btn-sm" id="redo-filter-btn" onclick="toggleRedoFilter()">待重做</button>
+    </div>
+    <div id="wq-list"></div>
+  </div>
+</div>
+
+<!-- ===== 错题重做页 ===== -->
+<div class="page" id="page-redo">
+  <div class="top-bar"><div class="top-bar-inner">
+    <button class="back-btn" onclick="showPage('wrong-questions')">‹</button>
+    <h1>错题重做</h1>
+    <span id="redo-prog" style="font-size:13px;opacity:.8"></span>
+  </div></div>
+  <div class="page-body">
+    <div class="card" id="redo-q-card"></div>
+    <div style="padding:0 14px" id="redo-opts"></div>
+    <div class="card" id="redo-result" style="display:none"></div>
+    <div style="padding:0 14px;display:flex;gap:10px;margin-top:4px" id="redo-nav">
+      <button class="btn btn-gray btn-block" onclick="redoPrev()">‹ 上一题</button>
+      <button class="btn btn-primary btn-block" id="redo-next-btn" onclick="redoNext()">下一题 ›</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 计时页 ===== -->
+<div class="page" id="page-exam-timer">
+  <div class="top-bar"><div class="top-bar-inner">
+    <button class="back-btn" onclick="showPage('home')">‹</button>
+    <h1>试卷计时</h1>
+  </div></div>
+  <div class="page-body">
+    <div class="card">
+      <div class="card-title">⏱ 计时器</div>
+      <div class="timer-display" id="timer-disp">00:00:00</div>
+      <div class="timer-btns">
+        <button class="btn btn-primary" id="t-start" onclick="tStart()">▶ 开始</button>
+        <button class="btn btn-ghost" id="t-pause" onclick="tPause()" style="display:none">⏸ 暂停</button>
+        <button class="btn btn-ghost" id="t-resume" onclick="tResume()" style="display:none">▶ 继续</button>
+        <button class="btn btn-danger" id="t-stop" onclick="tStop()" style="display:none">⏹ 结束保存</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 历史记录</div>
+      <div class="chips-bar" id="exam-chips" style="padding:0 0 10px"></div>
+      <div id="exam-list"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- ===== 底部导航 ===== -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-home" onclick="showPage('home')"><div class="nav-icon">🏠</div>首页</button>
+  <button class="nav-btn" id="nav-knowledge" onclick="showPage('knowledge')"><div class="nav-icon">📖</div>知识点</button>
+  <button class="nav-btn" id="nav-wrong-questions" onclick="showPage('wrong-questions')"><div class="nav-icon">❌</div>错题本</button>
+  <button class="nav-btn" id="nav-exam-timer" onclick="showPage('exam-timer')"><div class="nav-icon">⏱</div>计时</button>
+</nav>
+
+<!-- ===== 模态：科目 ===== -->
+<div class="modal-overlay" id="modal-subj">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-subj-title">新增科目</span>
+      <button class="modal-close" onclick="closeModal('modal-subj')">×</button>
+    </div>
+    <input type="hidden" id="f-subj-id">
+    <div class="form-group"><label class="form-label">科目名称 *</label><input class="form-control" id="f-subj-name" placeholder="如：行测、申论、公基"></div>
+    <div class="form-group"><label class="form-label">备注</label><textarea class="form-control" id="f-subj-desc" placeholder="可选"></textarea></div>
+    <button class="btn btn-primary btn-block" onclick="saveSubject()">保存</button>
+  </div>
+</div>
+
+<!-- ===== 模态：知识点 ===== -->
+<div class="modal-overlay" id="modal-kp">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-kp-title">新增知识点</span>
+      <button class="modal-close" onclick="closeModal('modal-kp')">×</button>
+    </div>
+    <input type="hidden" id="f-kp-id">
+    <div class="form-group"><label class="form-label">所属科目 *</label><select class="form-control" id="f-kp-subj"></select></div>
+    <div class="form-group"><label class="form-label">标题 *</label><input class="form-control" id="f-kp-title" placeholder="简短标题，如：行政诉讼受案范围"></div>
+    <div class="form-group">
+      <label class="form-label">内容 * <span style="font-size:11px;color:#aaa">用【关键词】标记重点，挖空时自动识别</span></label>
+      <textarea class="form-control" id="f-kp-content" style="min-height:130px" placeholder="详细内容...&#10;&#10;例：行政诉讼受案范围包括【具体行政行为】，不包括【抽象行政行为】。"></textarea>
+    </div>
+    <div class="form-group"><label class="form-label">标签（逗号分隔）</label><input class="form-control" id="f-kp-tags" placeholder="重点,易错,法律"></div>
+    <button class="btn btn-primary btn-block" onclick="saveKP()">保存知识点</button>
+  </div>
+</div>
+
+<!-- ===== 模态：错题 ===== -->
+<div class="modal-overlay" id="modal-wq">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-wq-title">记录错题</span>
+      <button class="modal-close" onclick="closeModal('modal-wq')">×</button>
+    </div>
+    <input type="hidden" id="f-wq-id">
+    <div class="form-group"><label class="form-label">所属科目 *</label><select class="form-control" id="f-wq-subj" onchange="onWQSubjChange()"></select></div>
+    <div class="form-group"><label class="form-label">关联知识点</label><select class="form-control" id="f-wq-kp"><option value="">-- 不关联 --</option></select></div>
+    <div class="form-group">
+      <label class="form-label">📷 拍照上传题目图片（可选）</label>
+      <input type="file" id="f-wq-img" accept="image/*" capture="environment" style="display:none" onchange="handleWQImage(this)">
+      <button class="btn btn-ghost btn-block" onclick="document.getElementById('f-wq-img').click()">📷 拍照 / 选择图片</button>
+      <img id="wq-img-preview" class="img-preview">
+      <div id="wq-img-status" style="font-size:12px;color:#fa8c16;margin-top:6px"></div>
+    </div>
+    <div class="form-group"><label class="form-label">题目内容 *</label><textarea class="form-control" id="f-wq-q" style="min-height:100px" placeholder="输入题目内容（拍照后请手动输入，可参考图片）"></textarea></div>
+    <div class="form-group"><label class="form-label">选项（每行一个）</label><textarea class="form-control" id="f-wq-opts" style="min-height:80px" placeholder="A. 选项一&#10;B. 选项二&#10;C. 选项三&#10;D. 选项四"></textarea></div>
+    <div class="row2">
+      <div class="form-group"><label class="form-label">正确答案 *</label><input class="form-control" id="f-wq-correct" placeholder="如：A 或 AB"></div>
+      <div class="form-group"><label class="form-label">我的答案</label><input class="form-control" id="f-wq-mine" placeholder="如：B"></div>
+    </div>
+    <div class="form-group"><label class="form-label">为什么错了</label><textarea class="form-control" id="f-wq-reason" placeholder="分析错误原因..."></textarea></div>
+    <div class="form-group"><label class="form-label">经验总结</label><textarea class="form-control" id="f-wq-summary" placeholder="记录学习收获..."></textarea></div>
+    <button class="btn btn-primary btn-block" onclick="saveWQ()">保存错题</button>
+  </div>
+</div>
+
+<!-- ===== 模态：保存试卷 ===== -->
+<div class="modal-overlay" id="modal-exam">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">保存试卷记录</span>
+      <button class="modal-close" onclick="closeModal('modal-exam')">×</button>
+    </div>
+    <div class="form-group"><label class="form-label">所属科目 *</label><select class="form-control" id="f-exam-subj"></select></div>
+    <div class="form-group"><label class="form-label">试卷名称 *</label><input class="form-control" id="f-exam-name" placeholder="如：2024年国考行测真题"></div>
+    <div class="form-group"><label class="form-label">用时</label><input class="form-control" id="f-exam-dur-disp" readonly style="background:#f0f2ff;color:#4a6cf7;font-weight:600"><input type="hidden" id="f-exam-dur-sec"></div>
+    <div class="row2">
+      <div class="form-group"><label class="form-label">得分（可选）</label><input class="form-control" id="f-exam-score" type="number" placeholder="85"></div>
+      <div class="form-group"><label class="form-label">总分（可选）</label><input class="form-control" id="f-exam-total" type="number" placeholder="100"></div>
+    </div>
+    <div class="form-group"><label class="form-label">备注</label><textarea class="form-control" id="f-exam-notes" placeholder="可选备注..."></textarea></div>
+    <button class="btn btn-primary btn-block" onclick="saveExamRecord()">保存记录</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// IndexedDB
+// ============================================================
+const DB_NAME='gongkao', DB_VER=1;
+let db;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(DB_NAME,DB_VER);
+    req.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('subjects')) d.createObjectStore('subjects',{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains('knowledge')){const s=d.createObjectStore('knowledge',{keyPath:'id',autoIncrement:true});s.createIndex('subject_id','subject_id');}
+      if(!d.objectStoreNames.contains('wrong')){const s=d.createObjectStore('wrong',{keyPath:'id',autoIncrement:true});s.createIndex('subject_id','subject_id');}
+      if(!d.objectStoreNames.contains('exams')){const s=d.createObjectStore('exams',{keyPath:'id',autoIncrement:true});s.createIndex('subject_id','subject_id');}
+    };
+    req.onsuccess=e=>{db=e.target.result;res(db);};
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+function dbGetAll(store,idx,key){
+  return new Promise((res,rej)=>{
+    const req=(idx&&key!==undefined)?db.transaction(store).objectStore(store).index(idx).getAll(key):db.transaction(store).objectStore(store).getAll();
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+function dbGet(store,id){return new Promise((res,rej)=>{const req=db.transaction(store).objectStore(store).get(id);req.onsuccess=e=>res(e.target.result);req.onerror=e=>rej(e.target.error);});}
+function dbAdd(store,obj){return new Promise((res,rej)=>{const req=db.transaction(store,'readwrite').objectStore(store).add(obj);req.onsuccess=e=>res(e.target.result);req.onerror=e=>rej(e.target.error);});}
+function dbPut(store,obj){return new Promise((res,rej)=>{const req=db.transaction(store,'readwrite').objectStore(store).put(obj);req.onsuccess=e=>res(e.target.result);req.onerror=e=>rej(e.target.error);});}
+function dbDel(store,id){return new Promise((res,rej)=>{const req=db.transaction(store,'readwrite').objectStore(store).delete(id);req.onsuccess=e=>res(e.target.result);req.onerror=e=>rej(e.target.error);});}
+
+// ============================================================
+// 工具
+// ============================================================
+function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toast(msg,ms=2200){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),ms);}
+function fmtSec(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
+function fmtSecLabel(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;if(h>0)return`${h}小时${String(m).padStart(2,'0')}分${String(sec).padStart(2,'0')}秒`;return`${m}分${String(sec).padStart(2,'0')}秒`;}
+function nowISO(){return new Date().toISOString();}
+function fmtDate(iso){return iso?iso.slice(0,10):'';}
+function fmtDT(iso){return iso?iso.slice(0,16).replace('T',' '):'';}
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+// ============================================================
+// 路由
+// ============================================================
+let _page='home';
+let _filter={kp:null,wq:null,exam:null};
+let _subjects=[];
+let _wqRedoOnly=false;
+let _curKPId=null;
+let _quiz=null;
+let _redoList=[],_redoIdx=0,_redoAnswered=false;
+
+const NAV_PAGES=['home','knowledge','wrong-questions','exam-timer'];
+
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(n=>n.classList.remove('active'));
+  const nb=document.getElementById('nav-'+name);
+  if(nb)nb.classList.add('active');
+  _page=name;
+  const map={
+    'home':loadHome,'subjects':loadSubjects,
+    'knowledge':loadKnowledge,'wrong-questions':loadWQ,
+    'exam-timer':loadExamRecords
+  };
+  if(map[name])map[name]();
+}
+
+// ============================================================
+// 首页
+// ============================================================
+async function loadHome(){
+  _subjects=await dbGetAll('subjects');
+  const kps=await dbGetAll('knowledge');
+  const wqs=await dbGetAll('wrong');
+  const unmastered=wqs.filter(w=>w.lastRedoCorrect!==true).length;
+  document.getElementById('s-sub').textContent=_subjects.length;
+  document.getElementById('s-kp').textContent=kps.length;
+  document.getElementById('s-wq').textContent=wqs.length;
+  document.getElementById('s-um').textContent=unmastered;
+  const subjKP={},subjWQ={};
+  kps.forEach(k=>{subjKP[k.subject_id]=(subjKP[k.subject_id]||0)+1;});
+  wqs.forEach(w=>{subjWQ[w.subject_id]=(subjWQ[w.subject_id]||0)+1;});
+  const el=document.getElementById('home-subj-list');
+  if(!_subjects.length){el.innerHTML='<p style="color:#bbb;font-size:13px;text-align:center;padding:10px">还没有科目，先去添加吧</p>';return;}
+  el.innerHTML=_subjects.map(s=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f5f5f5">
+      <div><div style="font-size:15px;font-weight:500">${esc(s.name)}</div><div style="font-size:12px;color:#999">${subjKP[s.id]||0} 知识点 · ${subjWQ[s.id]||0} 错题</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="goSubjectKP(${s.id})">查看 ›</button>
+    </div>`).join('');
+}
+function goSubjectKP(id){_filter.kp=id;showPage('knowledge');}
+
+// ============================================================
+// 科目
+// ============================================================
+async function loadSubjects(){
+  _subjects=await dbGetAll('subjects');
+  const kps=await dbGetAll('knowledge'),wqs=await dbGetAll('wrong');
+  const sk={},sw={};
+  kps.forEach(k=>{sk[k.subject_id]=(sk[k.subject_id]||0)+1;});
+  wqs.forEach(w=>{sw[w.subject_id]=(sw[w.subject_id]||0)+1;});
+  const el=document.getElementById('subj-list');
+  if(!_subjects.length){el.innerHTML='<div class="empty"><div class="empty-icon">📚</div><p>还没有科目<br>点击右上角新增</p></div>';return;}
+  el.innerHTML=_subjects.map(s=>`
+    <div class="list-item">
+      <div class="item-body">
+        <div class="item-title">${esc(s.name)}</div>
+        <div class="item-sub">${sk[s.id]||0} 知识点 · ${sw[s.id]||0} 错题${s.desc?' · '+esc(s.desc):''}</div>
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditSubjectModal(${s.id})">编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSubject(${s.id})">删除</button>
+      </div>
+    </div>`).join('');
+}
+function openSubjectModal(){
+  document.getElementById('f-subj-id').value='';
+  document.getElementById('f-subj-name').value='';
+  document.getElementById('f-subj-desc').value='';
+  document.getElementById('modal-subj-title').textContent='新增科目';
+  openModal('modal-subj');
+}
+async function openEditSubjectModal(id){
+  const s=await dbGet('subjects',id);
+  document.getElementById('f-subj-id').value=id;
+  document.getElementById('f-subj-name').value=s.name;
+  document.getElementById('f-subj-desc').value=s.desc||'';
+  document.getElementById('modal-subj-title').textContent='编辑科目';
+  openModal('modal-subj');
+}
+async function saveSubject(){
+  const id=parseInt(document.getElementById('f-subj-id').value)||null;
+  const name=document.getElementById('f-subj-name').value.trim();
+  const desc=document.getElementById('f-subj-desc').value.trim();
+  if(!name){toast('请输入科目名称');return;}
+  if(id){const old=await dbGet('subjects',id);await dbPut('subjects',{...old,name,desc});toast('修改成功');}
+  else{await dbAdd('subjects',{name,desc,createdAt:nowISO()});toast('添加成功');}
+  closeModal('modal-subj');loadSubjects();
+}
+async function deleteSubject(id){
+  if(!confirm('确定删除该科目？相关知识点和错题也会一并删除'))return;
+  const kps=await dbGetAll('knowledge','subject_id',id);for(const k of kps)await dbDel('knowledge',k.id);
+  const wqs=await dbGetAll('wrong','subject_id',id);for(const w of wqs)await dbDel('wrong',w.id);
+  const exs=await dbGetAll('exams','subject_id',id);for(const e of exs)await dbDel('exams',e.id);
+  await dbDel('subjects',id);toast('已删除');loadSubjects();
+}
+
+// ============================================================
+// 知识点
+// ============================================================
+async function loadKnowledge(){
+  _subjects=await dbGetAll('subjects');
+  renderChips('kp-chips','kp',loadKnowledge);
+  let kps=_filter.kp?await dbGetAll('knowledge','subject_id',_filter.kp):await dbGetAll('knowledge');
+  const kw=(document.getElementById('kp-search').value||'').trim().toLowerCase();
+  if(kw)kps=kps.filter(k=>k.title.toLowerCase().includes(kw)||k.content.toLowerCase().includes(kw)||(k.tags||'').toLowerCase().includes(kw));
+  kps.sort((a,b)=>b.createdAt>a.createdAt?1:-1);
+  renderKPList(kps);
+}
+async function renderKPList(kps){
+  if(!kps){
+    let all=_filter.kp?await dbGetAll('knowledge','subject_id',_filter.kp):await dbGetAll('knowledge');
+    const kw=(document.getElementById('kp-search').value||'').trim().toLowerCase();
+    if(kw)all=all.filter(k=>k.title.toLowerCase().includes(kw)||k.content.toLowerCase().includes(kw)||(k.tags||'').toLowerCase().includes(kw));
+    kps=all.sort((a,b)=>b.createdAt>a.createdAt?1:-1);
+  }
+  const subjMap=Object.fromEntries(_subjects.map(s=>[s.id,s.name]));
+  const el=document.getElementById('kp-list');
+  if(!kps.length){el.innerHTML='<div class="empty"><div class="empty-icon">📖</div><p>暂无知识点<br>点击右上角添加</p></div>';return;}
+  el.innerHTML=kps.map(k=>`
+    <div class="list-item" onclick="showKPDetail(${k.id})" style="cursor:pointer">
+      <div class="item-body">
+        <div class="item-title">${esc(k.title)}</div>
+        <div class="item-sub"><span class="tag">${esc(subjMap[k.subject_id]||'')}</span>${(k.tags||'').split(',').filter(Boolean).map(t=>`<span class="tag">${esc(t.trim())}</span>`).join('')}</div>
+        <div style="font-size:13px;color:#666;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k.content.substring(0,60))}${k.content.length>60?'...':''}</div>
+      </div>
+      <span style="color:#ccc;font-size:20px">›</span>
+    </div>`).join('');
+}
+function openKPModal(){
+  document.getElementById('f-kp-id').value='';
+  document.getElementById('f-kp-title').value='';
+  document.getElementById('f-kp-content').value='';
+  document.getElementById('f-kp-tags').value='';
+  document.getElementById('modal-kp-title').textContent='新增知识点';
+  fillSubjSelect('f-kp-subj');
+  openModal('modal-kp');
+}
+async function openEditKPModal(){
+  const k=await dbGet('knowledge',_curKPId);
+  document.getElementById('f-kp-id').value=k.id;
+  document.getElementById('f-kp-title').value=k.title;
+  document.getElementById('f-kp-content').value=k.content;
+  document.getElementById('f-kp-tags').value=k.tags||'';
+  document.getElementById('modal-kp-title').textContent='编辑知识点';
+  fillSubjSelect('f-kp-subj',k.subject_id);
+  openModal('modal-kp');
+}
+async function saveKP(){
+  const id=parseInt(document.getElementById('f-kp-id').value)||null;
+  const subjId=parseInt(document.getElementById('f-kp-subj').value);
+  const title=document.getElementById('f-kp-title').value.trim();
+  const content=document.getElementById('f-kp-content').value.trim();
+  const tags=document.getElementById('f-kp-tags').value.trim();
+  if(!title||!content){toast('标题和内容不能为空');return;}
+  if(!subjId){toast('请选择科目');return;}
+  if(id){const old=await dbGet('knowledge',id);await dbPut('knowledge',{...old,subject_id:subjId,title,content,tags,updatedAt:nowISO()});toast('修改成功');}
+  else{await dbAdd('knowledge',{subject_id:subjId,title,content,tags,source:'手动录入',createdAt:nowISO()});toast('添加成功');}
+  closeModal('modal-kp');loadKnowledge();
+}
+async function deleteKP(id){
+  if(!confirm('确定删除该知识点？'))return;
+  await dbDel('knowledge',id);toast('已删除');showPage('knowledge');
+}
+async function showKPDetail(id){
+  _curKPId=id;
+  const k=await dbGet('knowledge',id);
+  const subjMap=Object.fromEntries(_subjects.map(s=>[s.id,s.name]));
+  document.getElementById('kp-detail-title').textContent=k.title;
+  document.getElementById('quiz-card').style.display='none';
+  document.getElementById('quiz-result').innerHTML='';
+  document.getElementById('kp-detail-body').innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div><span class="tag">${esc(subjMap[k.subject_id]||'')}</span>${(k.tags||'').split(',').filter(Boolean).map(t=>`<span class="tag">${esc(t.trim())}</span>`).join('')}</div>
+      <button class="btn btn-danger btn-sm" onclick="deleteKP(${k.id})">🗑 删除</button>
+    </div>
+    <div style="font-size:14px;line-height:1.8;white-space:pre-wrap">${esc(k.content)}</div>
+    <div style="font-size:12px;color:#bbb;margin-top:12px">来源：${esc(k.source||'手动录入')} · ${fmtDT(k.createdAt)}</div>`;
+  showPage('kp-detail');
+}
+
+// ============================================================
+// 挖空检验
+// ============================================================
+async function startQuiz(){
+  const k=await dbGet('knowledge',_curKPId);
+  const content=k.content;
+  let blanks=[];
+  const marked=[...content.matchAll(/【([^】]+)】/g)].map(m=>m[1]);
+  if(marked.length){blanks=[...new Set(marked)].slice(0,6);}
+  else{
+    const sents=content.split(/[。；\n]/);
+    for(const sent of sents){
+      const words=[...sent.matchAll(/[\u4e00-\u9fa5]{2,8}/g)].map(m=>m[0]);
+      if(words.length){const longest=words.reduce((a,b)=>a.length>=b.length?a:b);if(longest.length>=2&&!blanks.includes(longest))blanks.push(longest);}
+    }
+    blanks=blanks.slice(0,5);
+  }
+  if(!blanks.length){toast('内容太短，无法生成挖空题，请用【关键词】标记重点');return;}
+  let qc=content;const answers=[];
+  blanks.forEach((b,i)=>{qc=qc.replace(b,`___(${i+1})___`);answers.push({index:i+1,answer:b});});
+  _quiz={quizContent:qc,answers,original:content};
+  let html=esc(qc).replace(/___\((\d+)\)___/g,(_,n)=>`<input class="blank-input" id="blank-${n}" placeholder="(${n})" size="8">`);
+  document.getElementById('quiz-display').innerHTML=html;
+  document.getElementById('quiz-result').innerHTML='';
+  document.getElementById('quiz-card').style.display='block';
+  document.getElementById('quiz-card').scrollIntoView({behavior:'smooth'});
+}
+function checkQuiz(){
+  const{answers,original}=_quiz;let correct=0;
+  answers.forEach(a=>{
+    const inp=document.getElementById(`blank-${a.index}`);if(!inp)return;
+    if(inp.value.trim()===a.answer){inp.className='blank-input ok';correct++;}
+    else{inp.className='blank-input err';inp.placeholder=a.answer;}
+  });
+  const total=answers.length;
+  const res=document.getElementById('quiz-result');
+  if(correct===total){res.innerHTML='<div style="color:#52c41a;font-weight:600;text-align:center;padding:10px">🎉 全部正确！太棒了！</div>';}
+  else{res.innerHTML=`<div style="color:#fa8c16;font-weight:600">答对 ${correct}/${total} 个，红色框为答错项，正确答案已显示在提示中</div><div style="margin-top:10px;font-size:13px;background:#f8f9ff;border-radius:8px;padding:10px;line-height:1.8;white-space:pre-wrap">${esc(original)}</div>`;}
+}
+
+// ============================================================
+// 错题本
+// ============================================================
+async function loadWQ(){
+  _subjects=await dbGetAll('subjects');
+  renderChips('wq-chips','wq',loadWQ);
+  await renderWQList();
+}
+async function renderWQList(){
+  let wqs=_filter.wq?await dbGetAll('wrong','subject_id',_filter.wq):await dbGetAll('wrong');
+  const kw=(document.getElementById('wq-search').value||'').trim().toLowerCase();
+  if(kw)wqs=wqs.filter(w=>w.questionText.toLowerCase().includes(kw));
+  if(_wqRedoOnly)wqs=wqs.filter(w=>w.lastRedoCorrect!==true);
+  wqs.sort((a,b)=>b.createdAt>a.createdAt?1:-1);
+  const subjMap=Object.fromEntries(_subjects.map(s=>[s.id,s.name]));
+  const el=document.getElementById('wq-list');
+  if(!wqs.length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><p>暂无错题记录</p></div>';return;}
+  el.innerHTML=wqs.map(w=>`
+    <div class="list-item">
+      <div class="item-body" onclick="showWQDetail(${w.id})" style="cursor:pointer">
+        <div class="item-title">${esc(w.questionText.substring(0,60))}${w.questionText.length>60?'...':''}</div>
+        <div class="item-sub">
+          <span class="tag">${esc(subjMap[w.subject_id]||'')}</span>
+          ${w.lastRedoCorrect===true?'<span class="tag tag-green">已掌握</span>':''}
+          ${w.lastRedoCorrect===false?'<span class="tag tag-red">待攻克</span>':''}
+          ${w.lastRedoCorrect==null&&!w.redoCount?'<span class="tag tag-orange">未重做</span>':''}
+        </div>
+        <div style="font-size:12px;color:#bbb;margin-top:2px">正确答案：${esc(w.correctAnswer)} · 重做${w.redoCount||0}次</div>
+      </div>
+      <div class="item-actions">
+        <button class="btn btn-ghost btn-sm" onclick="startRedoSingle(${w.id})">重做</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteWQ(${w.id})">删</button>
+      </div>
+    </div>`).join('');
+}
+function toggleRedoFilter(){
+  _wqRedoOnly=!_wqRedoOnly;
+  const btn=document.getElementById('redo-filter-btn');
+  btn.style.background=_wqRedoOnly?'#4a6cf7':'';
+  btn.style.color=_wqRedoOnly?'#fff':'';
+  renderWQList();
+}
+async function showWQDetail(id){
+  const w=await dbGet('wrong',id);
+  const subjMap=Object.fromEntries(_subjects.map(s=>[s.id,s.name]));
+  let kpTitle='';
+  if(w.kpId){const kp=await dbGet('knowledge',w.kpId).catch(()=>null);if(kp)kpTitle=kp.title;}
+  let msg=`【${subjMap[w.subject_id]||''}】${kpTitle?' | '+kpTitle:''}\n\n${w.questionText}\n\n`;
+  if(w.options&&w.options.length)msg+=w.options.join('\n')+'\n\n';
+  msg+=`✅ 正确答案：${w.correctAnswer}\n`;
+  if(w.myAnswer)msg+=`❌ 我的答案：${w.myAnswer}\n`;
+  if(w.wrongReason)msg+=`\n📌 错误原因：${w.wrongReason}`;
+  if(w.summary)msg+=`\n💡 经验总结：${w.summary}`;
+  alert(msg);
+}
+function openWQModal(){
+  document.getElementById('f-wq-id').value='';
+  document.getElementById('f-wq-q').value='';
+  document.getElementById('f-wq-opts').value='';
+  document.getElementById('f-wq-correct').value='';
+  document.getElementById('f-wq-mine').value='';
+  document.getElementById('f-wq-reason').value='';
+  document.getElementById('f-wq-summary').value='';
+  document.getElementById('wq-img-preview').style.display='none';
+  document.getElementById('wq-img-preview').src='';
+  document.getElementById('wq-img-status').textContent='';
+  document.getElementById('f-wq-img').value='';
+  delete document.getElementById('f-wq-img').dataset.b64;
+  document.getElementById('modal-wq-title').textContent='记录错题';
+  fillSubjSelect('f-wq-subj');
+  document.getElementById('f-wq-kp').innerHTML='<option value="">-- 不关联 --</option>';
+  openModal('modal-wq');
+}
+async function onWQSubjChange(){
+  const sid=parseInt(document.getElementById('f-wq-subj').value)||null;
+  const sel=document.getElementById('f-wq-kp');
+  sel.innerHTML='<option value="">-- 不关联 --</option>';
+  if(!sid)return;
+  const kps=await dbGetAll('knowledge','subject_id',sid);
+  kps.forEach(k=>{const o=document.createElement('option');o.value=k.id;o.textContent=k.title;sel.appendChild(o);});
+}
+function handleWQImage(input){
+  const file=input.files[0];if(!file)return;
+  const preview=document.getElementById('wq-img-preview');
+  const status=document.getElementById('wq-img-status');
+  const reader=new FileReader();
+  reader.onload=e=>{preview.src=e.target.result;preview.style.display='block';input.dataset.b64=e.target.result;};
+  reader.readAsDataURL(file);
+  status.textContent='图片已选择，请对照图片手动输入题目内容';
+}
+async function saveWQ(){
+  const id=parseInt(document.getElementById('f-wq-id').value)||null;
+  const subjId=parseInt(document.getElementById('f-wq-subj').value)||null;
+  const kpId=parseInt(document.getElementById('f-wq-kp').value)||null;
+  const qText=document.getElementById('f-wq-q').value.trim();
+  const optsRaw=document.getElementById('f-wq-opts').value.trim();
+  const correct=document.getElementById('f-wq-correct').value.trim();
+  const mine=document.getElementById('f-wq-mine').value.trim();
+  const reason=document.getElementById('f-wq-reason').value.trim();
+  const summary=document.getElementById('f-wq-summary').value.trim();
+  const imgB64=document.getElementById('f-wq-img').dataset.b64||'';
+  if(!qText){toast('请输入题目内容');return;}
+  if(!subjId){toast('请选择科目');return;}
+  if(!correct){toast('请填写正确答案');return;}
+  const options=optsRaw?optsRaw.split('\n').map(l=>l.trim()).filter(Boolean):[];
+  if(id){
+    const old=await dbGet('wrong',id);
+    await dbPut('wrong',{...old,subject_id:subjId,kpId,questionText:qText,options,correctAnswer:correct,myAnswer:mine,wrongReason:reason,summary});
+    toast('修改成功');
+  }else{
+    await dbAdd('wrong',{subject_id:subjId,kpId,questionText:qText,options,correctAnswer:correct,myAnswer:mine,wrongReason:reason,summary,imageB64:imgB64,redoCount:0,lastRedoCorrect:null,createdAt:nowISO()});
+    toast('错题已记录');
+  }
+  closeModal('modal-wq');loadWQ();
+}
+async function deleteWQ(id){
+  if(!confirm('确定删除该错题？'))return;
+  await dbDel('wrong',id);toast('已删除');renderWQList();
+}
+
+// ============================================================
+// 错题重做
+// ============================================================
+async function startRedo(){
+  let wqs=_filter.wq?await dbGetAll('wrong','subject_id',_filter.wq):await dbGetAll('wrong');
+  wqs=wqs.filter(w=>w.lastRedoCorrect!==true);
+  if(!wqs.length){toast('🎉 没有待重做的错题，全部掌握了！');return;}
+  _redoList=wqs;_redoIdx=0;_redoAnswered=false;
+  showPage('redo');renderRedoQ();
+}
+async function startRedoSingle(id){
+  const w=await dbGet('wrong',id);
+  _redoList=[w];_redoIdx=0;_redoAnswered=false;
+  showPage('redo');renderRedoQ();
+}
+function renderRedoQ(){
+  if(_redoIdx>=_redoList.length){
+    document.getElementById('redo-q-card').innerHTML=`<div style="text-align:center;padding:30px"><div style="font-size:40px">🎉</div><div style="font-size:18px;font-weight:600;margin-top:12px">本轮重做完成！</div><div style="font-size:14px;color:#999;margin-top:8px">共完成 ${_redoList.length} 道题</div><button class="btn btn-primary" style="margin-top:16px" onclick="showPage('wrong-questions')">返回错题本</button></div>`;
+    document.getElementById('redo-opts').innerHTML='';
+    document.getElementById('redo-result').style.display='none';
+    document.getElementById('redo-nav').style.display='none';
+    return;
+  }
+  const w=_redoList[_redoIdx];
+  _redoAnswered=false;
+  document.getElementById('redo-prog').textContent=`${_redoIdx+1}/${_redoList.length}`;
+  document.getElementById('redo-result').style.display='none';
+  const subjMap=Object.fromEntries(_subjects.map(s=>[s.id,s.name]));
+  document.getElementById('redo-q-card').innerHTML=`
+    <div style="font-size:12px;color:#999;margin-bottom:8px"><span class="tag">${esc(subjMap[w.subject_id]||'')}</span></div>
+    <div style="font-size:15px;line-height:1.7;white-space:pre-wrap">${esc(w.questionText)}</div>
+    ${w.imageB64?`<img src="${w.imageB64}" style="width:100%;border-radius:8px;margin-top:10px;max-height:200px;object-fit:contain">`:''}`;
+  const optsEl=document.getElementById('redo-opts');
+  if(w.options&&w.options.length){
+    optsEl.innerHTML=w.options.map((opt,i)=>`<button class="opt-btn" id="opt-${i}" onclick="selectOpt(this,'${esc(opt.substring(0,1))}',${w.id})">${esc(opt)}</button>`).join('');
+  }else{
+    optsEl.innerHTML=`<div style="padding:0 14px"><input class="form-control" id="redo-text-ans" placeholder="输入你的答案..."><button class="btn btn-primary btn-block" style="margin-top:10px" onclick="submitRedoText(${w.id})">提交答案</button></div>`;
+  }
+  document.getElementById('redo-nav').style.display='flex';
+  document.getElementById('redo-next-btn').textContent=_redoIdx<_redoList.length-1?'下一题 ›':'完成';
+}
+async function selectOpt(btn,answer,wId){
+  if(_redoAnswered)return;_redoAnswered=true;
+  const w=_redoList[_redoIdx];
+  const correct=answer.toUpperCase()===w.correctAnswer.trim().toUpperCase();
+  document.querySelectorAll('.opt-btn').forEach(b=>{
+    const a=b.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+    if(a&&a.toUpperCase()===w.correctAnswer.trim().toUpperCase())b.classList.add('right');
+  });
+  if(!correct)btn.classList.add('wrong');
+  await saveRedoResult(wId,correct);showRedoResult(w,correct);
+}
+async function submitRedoText(wId){
+  if(_redoAnswered)return;
+  const ans=document.getElementById('redo-text-ans').value.trim();
+  if(!ans){toast('请输入答案');return;}
+  _redoAnswered=true;
+  const w=_redoList[_redoIdx];
+  const correct=ans.toUpperCase()===w.correctAnswer.trim().toUpperCase();
+  await saveRedoResult(wId,correct);showRedoResult(w,correct);
+}
+async function saveRedoResult(wId,correct){
+  const w=await dbGet('wrong',wId);
+  await dbPut('wrong',{...w,redoCount:(w.redoCount||0)+1,lastRedoCorrect:correct,lastRedoAt:nowISO()});
+  const idx=_redoList.findIndex(x=>x.id===wId);
+  if(idx>=0)_redoList[idx]={..._redoList[idx],lastRedoCorrect:correct};
+}
+function showRedoResult(w,correct){
+  const el=document.getElementById('redo-result');el.style.display='block';
+  el.innerHTML=`
+    <div style="font-size:16px;font-weight:600;color:${correct?'#52c41a':'#ff4d4f'};margin-bottom:10px">${correct?'✅ 回答正确！':'❌ 回答错误'}</div>
+    <div style="font-size:14px"><strong>正确答案：</strong>${esc(w.correctAnswer)}</div>
+    ${w.wrongReason?`<div style="font-size:13px;color:#666;margin-top:8px"><strong>错误原因：</strong>${esc(w.wrongReason)}</div>`:''}
+    ${w.summary?`<div style="font-size:13px;color:#666;margin-top:6px"><strong>经验总结：</strong>${esc(w.summary)}</div>`:''}`;
+}
+function redoNext(){_redoIdx++;renderRedoQ();}
+function redoPrev(){if(_redoIdx>0){_redoIdx--;renderRedoQ();}}
+
+// ============================================================
+// 试卷计时
+// ============================================================
+let _tSec=0,_tInterval=null;
+function tStart(){
+  _tSec=0;updateTimerDisp();
+  _tInterval=setInterval(()=>{_tSec++;updateTimerDisp();},1000);
+  document.getElementById('t-start').style.display='none';
+  document.getElementById('t-pause').style.display='';
+  document.getElementById('t-stop').style.display='';
+}
+function tPause(){clearInterval(_tInterval);document.getElementById('t-pause').style.display='none';document.getElementById('t-resume').style.display='';}
+function tResume(){_tInterval=setInterval(()=>{_tSec++;updateTimerDisp();},1000);document.getElementById('t-resume').style.display='none';document.getElementById('t-pause').style.display='';}
+function tStop(){
+  clearInterval(_tInterval);
+  document.getElementById('f-exam-dur-sec').value=_tSec;
+  document.getElementById('f-exam-dur-disp').value=fmtSecLabel(_tSec);
+  document.getElementById('f-exam-name').value='';
+  document.getElementById('f-exam-score').value='';
+  document.getElementById('f-exam-total').value='';
+  document.getElementById('f-exam-notes').value='';
+  fillSubjSelect('f-exam-subj');
+  openModal('modal-exam');
+  document.getElementById('t-start').style.display='';
+  document.getElementById('t-pause').style.display='none';
+  document.getElementById('t-resume').style.display='none';
+  document.getElementById('t-stop').style.display='none';
+  _tSec=0;updateTimerDisp();
+}
+function updateTimerDisp(){document.getElementById('timer-disp').textContent=fmtSec(_tSec);}
+async function saveExamRecord(){
+  const subjId=parseInt(document.getElementById('f-exam-subj').value)||null;
+  const name=document.getElementById('f-exam-name').value.trim();
+  const durSec=parseInt(document.getElementById('f-exam-dur-sec').value)||0;
+  const score=parseFloat(document.getElementById('f-exam-score').value)||null;
+  const total=parseFloat(document.getElementById('f-exam-total').value)||null;
+  const notes=document.getElementById('f-exam-notes').value.trim();
+  if(!name){toast('请输入试卷名称');return;}
+  if(!subjId){toast('请选择科目');return;}
+  await dbAdd('exams',{subject_id:subjId,name,durSec,score,total,notes,examDate:nowISO(),createdAt:nowISO()});
+  toast('记录已保存');closeModal('modal-exam');loadExamRecords();
+}
+async function loadExamRecords(){
+  _subjects=await dbGetAll('subjects');
+  renderChips('exam-chips','exam',loadExamRecords);
+  let records=_filter.exam?await dbGetAll('exams','subject_id',_filter.exam):await dbGetAll('exams');
+  records.sort((a,b)=>b.createdAt>a.createdAt?1:-1);
+  const subjMap=Object.fromEntries(_subjects.map(s=>[s.id,s.name]));
+  const el=document.getElementById('exam-list');
+  if(!records.length){el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>暂无记录</p></div>';return;}
+  el.innerHTML=records.map(r=>`
+    <div class="list-item">
+      <div class="item-body">
+        <div class="item-title">${esc(r.name)}</div>
+        <div class="item-sub"><span class="tag">${esc(subjMap[r.subject_id]||'')}</span><span style="margin-left:4px">⏱ ${fmtSecLabel(r.durSec)}</span>${r.score!=null?`<span style="margin-left:4px">📊 ${r.score}${r.total?'/'+r.total:''}分</span>`:''}</div>
+        ${r.notes?`<div style="font-size:12px;color:#999;margin-top:4px">${esc(r.notes)}</div>`:''}
+        <div style="font-size:11px;color:#ccc;margin-top:2px">${fmtDate(r.examDate)}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteExam(${r.id})">删</button>
+    </div>`).join('');
+}
+async function deleteExam(id){if(!confirm('确定删除该记录？'))return;await dbDel('exams',id);toast('已删除');loadExamRecords();}
+
+// ============================================================
+// 公共
+// ============================================================
+function renderChips(cid,key,cb){
+  const el=document.getElementById(cid);const cur=_filter[key];
+  let html=`<div class="chip ${!cur?'active':''}" onclick="setFilter('${key}',null,this,'${cid}')">全部</div>`;
+  html+=_subjects.map(s=>`<div class="chip ${cur===s.id?'active':''}" onclick="setFilter('${key}',${s.id},this,'${cid}')">${esc(s.name)}</div>`).join('');
+  el.innerHTML=html;
+}
+function setFilter(key,val,el,cid){
+  _filter[key]=val;
+  document.querySelectorAll(`#${cid} .chip`).forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  if(key==='kp')loadKnowledge();
+  if(key==='wq')renderWQList();
+  if(key==='exam')loadExamRecords();
+}
+function fillSubjSelect(selId,selectedId){
+  const sel=document.getElementById(selId);
+  sel.innerHTML='<option value="">-- 请选择科目 --</option>';
+  _subjects.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;if(selectedId&&s.id===selectedId)o.selected=true;sel.appendChild(o);});
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+window.addEventListener('DOMContentLoaded',async()=>{
+  await openDB();
+  _subjects=await dbGetAll('subjects');
+  loadHome();
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+});
+</script>
+</body>
+</html>
