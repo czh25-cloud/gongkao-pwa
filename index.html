@@ -10,6 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <title>考公学习助手</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
@@ -305,9 +306,14 @@ select.form-control{appearance:none;background-image:url("data:image/svg+xml,%3C
       <input type="file" id="f-wq-img" accept="image/*" capture="environment" style="display:none" onchange="handleWQImage(this)">
       <button class="btn btn-ghost btn-block" onclick="document.getElementById('f-wq-img').click()">📷 拍照 / 选择图片</button>
       <img id="wq-img-preview" class="img-preview">
-      <div id="wq-img-status" style="font-size:12px;color:#fa8c16;margin-top:6px"></div>
+      <div id="wq-img-status" style="font-size:12px;margin-top:6px"></div>
+      <div id="wq-ocr-progress" style="display:none;margin-top:8px;background:#f0f2ff;border-radius:8px;padding:10px">
+        <div style="font-size:13px;color:#4a6cf7;margin-bottom:6px" id="wq-ocr-text">正在识别文字...</div>
+        <div style="background:#d8e0ff;border-radius:4px;height:6px"><div id="wq-ocr-bar" style="background:#4a6cf7;height:6px;border-radius:4px;width:0%;transition:.3s"></div></div>
+      </div>
+      <button id="wq-ocr-btn" class="btn btn-primary btn-block" style="display:none;margin-top:8px" onclick="retryOCR()">🔍 重新识别</button>
     </div>
-    <div class="form-group"><label class="form-label">题目内容 *</label><textarea class="form-control" id="f-wq-q" style="min-height:100px" placeholder="输入题目内容（拍照后请手动输入，可参考图片）"></textarea></div>
+    <div class="form-group"><label class="form-label">题目内容 *</label><textarea class="form-control" id="f-wq-q" style="min-height:100px" placeholder="拍照后自动识别填入，也可手动输入"></textarea></div>
     <div class="form-group"><label class="form-label">选项（每行一个）</label><textarea class="form-control" id="f-wq-opts" style="min-height:80px" placeholder="A. 选项一&#10;B. 选项二&#10;C. 选项三&#10;D. 选项四"></textarea></div>
     <div class="row2">
       <div class="form-group"><label class="form-label">正确答案 *</label><input class="form-control" id="f-wq-correct" placeholder="如：A 或 AB"></div>
@@ -717,8 +723,12 @@ function openWQModal(){
   document.getElementById('wq-img-preview').style.display='none';
   document.getElementById('wq-img-preview').src='';
   document.getElementById('wq-img-status').textContent='';
+  document.getElementById('wq-ocr-progress').style.display='none';
+  document.getElementById('wq-ocr-bar').style.width='0%';
+  document.getElementById('wq-ocr-btn').style.display='none';
   document.getElementById('f-wq-img').value='';
   delete document.getElementById('f-wq-img').dataset.b64;
+  _lastOCRImageData=null;
   document.getElementById('modal-wq-title').textContent='记录错题';
   fillSubjSelect('f-wq-subj');
   document.getElementById('f-wq-kp').innerHTML='<option value="">-- 不关联 --</option>';
@@ -732,14 +742,123 @@ async function onWQSubjChange(){
   const kps=await dbGetAll('knowledge','subject_id',sid);
   kps.forEach(k=>{const o=document.createElement('option');o.value=k.id;o.textContent=k.title;sel.appendChild(o);});
 }
+let _lastOCRImageData=null;
+
 function handleWQImage(input){
   const file=input.files[0];if(!file)return;
   const preview=document.getElementById('wq-img-preview');
   const status=document.getElementById('wq-img-status');
   const reader=new FileReader();
-  reader.onload=e=>{preview.src=e.target.result;preview.style.display='block';input.dataset.b64=e.target.result;};
+  reader.onload=e=>{
+    const b64=e.target.result;
+    preview.src=b64;
+    preview.style.display='block';
+    input.dataset.b64=b64;
+    _lastOCRImageData=b64;
+    runOCR(b64);
+  };
   reader.readAsDataURL(file);
-  status.textContent='图片已选择，请对照图片手动输入题目内容';
+  status.textContent='';
+}
+
+function retryOCR(){
+  if(_lastOCRImageData)runOCR(_lastOCRImageData);
+}
+
+async function runOCR(imageData){
+  const progress=document.getElementById('wq-ocr-progress');
+  const bar=document.getElementById('wq-ocr-bar');
+  const text=document.getElementById('wq-ocr-text');
+  const status=document.getElementById('wq-img-status');
+  const ocrBtn=document.getElementById('wq-ocr-btn');
+
+  progress.style.display='block';
+  ocrBtn.style.display='none';
+  bar.style.width='5%';
+  text.textContent='正在加载识别引擎...';
+  status.textContent='';
+
+  try{
+    const worker=await Tesseract.createWorker('chi_sim+eng',1,{
+      logger:m=>{
+        if(m.status==='recognizing text'){
+          const pct=Math.round(m.progress*100);
+          bar.style.width=pct+'%';
+          text.textContent=`正在识别文字... ${pct}%`;
+        } else if(m.status==='loading language traineddata'){
+          bar.style.width='20%';
+          text.textContent='正在加载中文识别模型...';
+        } else if(m.status==='initializing api'){
+          bar.style.width='40%';
+          text.textContent='正在初始化...';
+        }
+      }
+    });
+
+    bar.style.width='60%';
+    text.textContent='正在识别图片文字...';
+
+    const result=await worker.recognize(imageData);
+    await worker.terminate();
+
+    bar.style.width='100%';
+    text.textContent='识别完成，正在解析题目...';
+
+    const rawText=result.data.text;
+    parseAndFillWQ(rawText);
+
+    setTimeout(()=>{
+      progress.style.display='none';
+      ocrBtn.style.display='block';
+      status.innerHTML='<span style="color:#52c41a">✅ 识别完成，已自动填入，可手动修改</span>';
+    },600);
+
+  }catch(err){
+    progress.style.display='none';
+    ocrBtn.style.display='block';
+    status.innerHTML='<span style="color:#ff4d4f">❌ 识别失败，请手动输入。原因：'+err.message+'</span>';
+  }
+}
+
+function parseAndFillWQ(rawText){
+  // 清理文本
+  const lines=rawText.split('\n').map(l=>l.trim()).filter(Boolean);
+  const fullText=lines.join('\n');
+
+  // 识别选项行：以 A. B. C. D. 或 A、B、C、D 开头
+  const optionPattern=/^[A-Ea-e][.、．\s]/;
+  const optionLines=[];
+  const questionLines=[];
+  let foundOptions=false;
+
+  for(const line of lines){
+    if(optionPattern.test(line)){
+      foundOptions=true;
+      optionLines.push(line);
+    } else if(!foundOptions){
+      questionLines.push(line);
+    }
+  }
+
+  // 填入题目内容（选项之前的部分）
+  const qText=questionLines.join('\n').trim();
+  if(qText){
+    document.getElementById('f-wq-q').value=qText;
+  } else {
+    // 没识别出选项，把全文放入题目
+    document.getElementById('f-wq-q').value=fullText;
+  }
+
+  // 填入选项
+  if(optionLines.length>=2){
+    document.getElementById('f-wq-opts').value=optionLines.join('\n');
+  }
+
+  // 尝试识别答案（常见格式：答案：A / 正确答案：B / 【答案】C）
+  const answerMatch=fullText.match(/(?:答案|正确答案|【答案】|解析)[：:]\s*([A-Ea-e]+)/);
+  if(answerMatch){
+    document.getElementById('f-wq-correct').value=answerMatch[1].toUpperCase();
+  }
 }
 async function saveWQ(){
   const id=parseInt(document.getElementById('f-wq-id').value)||null;
